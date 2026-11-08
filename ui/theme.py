@@ -60,6 +60,8 @@ def _icon_files(c):
                    'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
         'check': f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{c["on_accent"]}" '
                  'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+        'dot': f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5" '
+               f'fill="{c["on_accent"]}"/></svg>',
     }
     for name, svg in svgs.items():
         path = os.path.join(folder, f"{name}-{c['bg'].lstrip('#')}.svg")
@@ -156,6 +158,12 @@ QCheckBox {{ spacing: 10px; }}
 QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid {c['border_strong']};
                        background: {c['raised']}; }}
 QCheckBox::indicator:hover {{ border-color: {c['accent']}; }}
+QRadioButton {{ spacing: 10px; }}
+QRadioButton::indicator {{ width: 16px; height: 16px; border-radius: 10px; border: 2px solid {c['border_strong']};
+                          background: {c['raised']}; }}
+QRadioButton::indicator:hover {{ border-color: {c['accent']}; }}
+QRadioButton::indicator:checked {{ background: {c['accent']}; border-color: {c['accent']}; image: url("{i['dot']}"); }}
+QDoubleSpinBox {{ background: {c['raised']}; border: 1px solid {c['border']}; border-radius: 7px; padding: 5px 8px; }}
 QCheckBox::indicator:checked {{ background: {c['accent']}; border-color: {c['accent']}; image: url("{i['check']}"); }}
 
 /* ---------- list ---------- */

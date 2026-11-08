@@ -32,7 +32,7 @@ version_info = VSVersionInfo(
     ],
 )
 
-datas = [('presets', 'presets'), ('assets', 'assets')]
+datas = [('presets', 'presets'), ('assets', 'assets'), ('CHANGELOG.md', '.')]
 datas += collect_data_files('pikepdf')
 datas += collect_data_files('pillow_heif')
 

@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextBrowser, QPr
 
 from app_info import VERSION
 from modules.updater import UpdateDownloader, launch_installer
+from .i18n import tr
 from .widgets import label, button
 
 
@@ -13,22 +14,22 @@ class UpdateDialog(QDialog):
         self.skipped = False
         self.installer_started = False
         self.downloader = None
-        self.setWindowTitle("Update available")
+        self.setWindowTitle(tr("Update available"))
         self.setMinimumSize(520, 420)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(24, 22, 24, 20)
         v.setSpacing(8)
-        v.addWidget(label(f"Version {info.version} is available", "h1"))
-        sub = label(f"You have {VERSION}. The update installs in the background and "
-                    "the app restarts by itself.", "muted")
+        v.addWidget(label(tr("Version {v} is available", v=info.version), "h1"))
+        sub = label(tr("You have {v}. The update installs in the background and the app restarts by itself.",
+                       v=VERSION), "muted")
         sub.setWordWrap(True)
         v.addWidget(sub)
         v.addSpacing(8)
-        v.addWidget(label("WHAT'S NEW", "section"))
+        v.addWidget(label(tr("WHAT'S NEW"), "section"))
         notes = QTextBrowser()
         notes.setOpenExternalLinks(True)
-        notes.setMarkdown(info.notes.strip() or "_No release notes._")
+        notes.setMarkdown(info.notes.strip() or tr("_No release notes._"))
         v.addWidget(notes, 1)
 
         self.progress = QProgressBar()
@@ -40,14 +41,14 @@ class UpdateDialog(QDialog):
         v.addWidget(self.state)
 
         row = QHBoxLayout()
-        self.skip_btn = button("Skip this version", "ghost")
+        self.skip_btn = button(tr("Skip this version"), "ghost")
         self.skip_btn.clicked.connect(self._skip)
         row.addWidget(self.skip_btn)
         row.addStretch()
-        self.later_btn = button("Later")
+        self.later_btn = button(tr("Later"))
         self.later_btn.clicked.connect(self.reject)
         row.addWidget(self.later_btn)
-        self.install_btn = button("Install update", "primary")
+        self.install_btn = button(tr("Install update"), "primary")
         self.install_btn.clicked.connect(self._install)
         row.addWidget(self.install_btn)
         v.addLayout(row)
@@ -61,7 +62,7 @@ class UpdateDialog(QDialog):
         self.skip_btn.setEnabled(False)
         self.progress.show()
         self.progress.setRange(0, 0)
-        self.state.setText("Downloading…")
+        self.state.setText(tr("Downloading…"))
         self.downloader = UpdateDownloader(self.info)
         self.downloader.progress.connect(self._progress)
         self.downloader.done.connect(self._downloaded)
@@ -72,10 +73,10 @@ class UpdateDialog(QDialog):
         if total:
             self.progress.setRange(0, total)
             self.progress.setValue(done)
-            self.state.setText(f"Downloading…  {done / 1048576:.1f} / {total / 1048576:.1f} MB")
+            self.state.setText(tr("Downloading…  {done} / {total} MB", done=f"{done / 1048576:.1f}", total=f"{total / 1048576:.1f}"))
 
     def _downloaded(self, path):
-        self.state.setText("Starting installer…")
+        self.state.setText(tr("Starting installer…"))
         try:
             launch_installer(path)
         except Exception as e:
@@ -89,7 +90,7 @@ class UpdateDialog(QDialog):
         self.state.setText("")
         self.install_btn.setEnabled(True)
         self.skip_btn.setEnabled(True)
-        QMessageBox.warning(self, "Update failed", f"The update couldn't be downloaded.\n\n{err}")
+        QMessageBox.warning(self, tr("Update failed"), tr("The update couldn't be downloaded.\n\n{err}", err=err))
 
     def reject(self):
         if self.downloader and self.downloader.isRunning():

@@ -1,12 +1,13 @@
 import os
 
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QFontMetrics, QColor, QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRectF
+from PyQt6.QtGui import QFontMetrics, QColor, QIcon, QPixmap, QPainter, QPainterPath
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-                             QComboBox, QButtonGroup, QFrame, QSizePolicy, QToolButton)
+                             QComboBox, QButtonGroup, QFrame, QSizePolicy)
 
 from modules.format_rules import FormatRules
 from . import icons, theme
+from .i18n import tr
 
 
 def label(text="", role=None, parent=None):
@@ -30,6 +31,7 @@ def button(text="", kind=None, icon_name=None, icon_color=None, tooltip=None, si
 
 
 def human_size(n):
+    n = float(n)
     for unit in ('B', 'KB', 'MB', 'GB'):
         if n < 1024 or unit == 'GB':
             return f"{n:.0f} {unit}" if unit == 'B' else f"{n:.1f} {unit}"
@@ -40,6 +42,23 @@ def category_of(fmt):
     if fmt == 'pdf':
         return 'pdf'
     return FormatRules.get_category(fmt)
+
+
+def rounded(pm, size, radius=9):
+    """Square, rounded-corner version of a pixmap (for thumbnails)."""
+    dpr = pm.devicePixelRatio() or 1
+    out = QPixmap(int(size * dpr), int(size * dpr))
+    out.setDevicePixelRatio(dpr)
+    out.fill(Qt.GlobalColor.transparent)
+    p = QPainter(out)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    path = QPainterPath()
+    path.addRoundedRect(QRectF(0, 0, size, size), radius, radius)
+    p.setClipPath(path)
+    p.drawPixmap(0, 0, size, size, pm)
+    p.end()
+    return out
 
 
 class Segmented(QFrame):
@@ -98,12 +117,12 @@ class DropZone(QFrame):
         lay.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignHCenter)
         lay.addSpacing(10)
 
-        self.title = label("Drop files to convert", "h1")
-        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.title)
-        self.sub = label("or click to browse — folders and ZIPs work too", "muted")
-        self.sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self.sub)
+        title = label(tr("Drop files to convert"), "h1")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(title)
+        sub = label(tr("or click to browse — folders, ZIPs and Ctrl+V work too"), "muted")
+        sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(sub)
         lay.addSpacing(18)
 
         chips = QHBoxLayout()
@@ -111,7 +130,7 @@ class DropZone(QFrame):
         chips.addStretch()
         for name, text in (('image', 'Images'), ('video', 'Video'), ('audio', 'Audio'),
                            ('document', 'Documents'), ('pdf', 'PDF')):
-            chips.addWidget(self._chip(name, text))
+            chips.addWidget(self._chip(name, tr(text)))
         chips.addStretch()
         lay.addLayout(chips)
         self.refresh_icons()
@@ -179,11 +198,21 @@ STATUS_STYLE = {
 }
 
 
+def option_label(fmt, text):
+    """Translate the special entries of target_options()."""
+    if text.endswith(" · restore"):
+        return tr("{fmt} · restore", fmt=fmt)
+    if text.endswith(" · keep format"):
+        return tr("{fmt} · keep format", fmt=fmt)
+    return text
+
+
 class FileRow(QFrame):
-    """One file in the queue: type tile, name/details, target format, status, actions."""
+    """One file in the queue: thumbnail, name/details, target format, status, actions."""
     remove_requested = pyqtSignal(object)
     reveal_requested = pyqtSignal(object)
     details_requested = pyqtSignal(object)
+    options_requested = pyqtSignal(object)
 
     def __init__(self, path, detection, options):
         super().__init__()
@@ -194,6 +223,13 @@ class FileRow(QFrame):
         self.status = "Ready" if options else "Unsupported"
         self.message = ""
         self.output = None
+        self.video_opts = None
+        self.duration = None
+        self._thumb = None   # QPixmap (raw, square)
+        try:
+            self.size = os.path.getsize(path)
+        except OSError:
+            self.size = 0
         self.setFixedHeight(64)
 
         lay = QHBoxLayout(self)
@@ -216,37 +252,57 @@ class FileRow(QFrame):
         text.addWidget(self.details)
         lay.addLayout(text, 1)
 
+        self.opts_btn = QPushButton()
+        self.opts_btn.setProperty("kind", "icon")
+        self.opts_btn.setToolTip(tr("Video options"))
+        self.opts_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.opts_btn.clicked.connect(lambda: self.options_requested.emit(self))
+        self.opts_btn.setVisible(self.is_video())
+        lay.addWidget(self.opts_btn)
+
         self.arrow = QLabel()
         lay.addWidget(self.arrow)
 
         self.combo = QComboBox()
-        self.combo.setFixedWidth(132)
+        self.combo.setFixedWidth(150)
         self.combo.setCursor(Qt.CursorShape.PointingHandCursor)
-        for fmt, text_ in options:
-            self.combo.addItem(text_, fmt)
-        if not options:
-            self.combo.addItem("—")
-            self.combo.setEnabled(False)
+        self.set_options(options)
         lay.addWidget(self.combo)
 
         self.status_btn = QPushButton()
         self.status_btn.setProperty("kind", "ghost")
-        self.status_btn.setFixedWidth(118)
-        self.status_btn.setStyleSheet("text-align: left; padding-left: 8px;")
+        self.status_btn.setFixedWidth(128)
         self.status_btn.clicked.connect(self._status_clicked)
         lay.addWidget(self.status_btn)
 
         self.remove_btn = QPushButton()
         self.remove_btn.setProperty("kind", "icon")
-        self.remove_btn.setToolTip("Remove from list")
+        self.remove_btn.setToolTip(tr("Remove from list"))
         self.remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
         lay.addWidget(self.remove_btn)
 
-        self._fill_details()
+        self.refresh_details()
         self.refresh_theme()
 
     # -- data
+    def is_video(self):
+        return FormatRules.get_category(self.det.effective or '') == 'video'
+
+    def set_options(self, options):
+        current = self.target()
+        self.options = options
+        self.combo.blockSignals(True)
+        self.combo.clear()
+        for fmt, text in options:
+            self.combo.addItem(option_label(fmt, text), fmt)
+        if not options:
+            self.combo.addItem("—")
+            self.combo.setEnabled(False)
+        self.combo.blockSignals(False)
+        if current:
+            self.set_target(current)
+
     def target(self):
         return self.combo.currentData() if self.options else None
 
@@ -257,48 +313,72 @@ class FileRow(QFrame):
             return True
         return False
 
-    def _fill_details(self):
-        try:
-            size = human_size(os.path.getsize(self.path))
-        except OSError:
-            size = "?"
+    def refresh_details(self):
+        from .dialogs import video_summary
         kind = (self.det.effective or 'unknown').upper()
+        size = human_size(self.size)
+        if self.output and self.status == "Done":
+            try:
+                new = os.path.getsize(self.output)
+                diff = (new - self.size) / self.size * 100 if self.size else 0
+                size = f"{human_size(self.size)} → {human_size(new)}  ({diff:+.0f} %)"
+            except OSError:
+                pass
         parts = [kind, size]
         if self.det.mismatch:
-            parts[0] = f"{self.det.real.upper()} detected"
-            parts.append(f"saved as .{self.det.ext}" if self.det.ext else "no extension")
+            parts[0] = tr("{fmt} detected", fmt=self.det.real.upper())
+            parts.append(tr("saved as .{ext}", ext=self.det.ext) if self.det.ext else tr("no extension"))
         elif not self.options:
-            parts.append("can't be converted")
-        parent = os.path.basename(os.path.dirname(self.path))
-        if parent:
-            parts.append(parent)
+            parts.append(tr("can't be converted"))
+        summary = video_summary(self.video_opts)
+        if summary:
+            parts.append(summary)
+        else:
+            parent = os.path.basename(os.path.dirname(self.path))
+            if parent:
+                parts.append(parent)
         self.details.setText("  ·  ".join(parts))
         if self.det.mismatch:
-            self.details.setToolTip(f"The content is {self.det.label or self.det.real.upper()}, "
-                                    f"even though the file is named .{self.det.ext or '(none)'}.\n"
-                                    f"Pick “{self.det.real} · restore” to just fix the extension.")
+            self.details.setToolTip(tr("The content is {label}, even though the file is named .{ext}.\n"
+                                       "Pick “{fmt} · restore” to just fix the extension.",
+                                       label=self.det.label or self.det.real.upper(),
+                                       ext=self.det.ext or '—', fmt=self.det.real))
+
+    def set_thumbnail(self, png_bytes):
+        pm = QPixmap()
+        if png_bytes and pm.loadFromData(png_bytes):
+            self._thumb = pm
+            self.tile.setStyleSheet("background: transparent;")
+            self.tile.setPixmap(rounded(pm, 40))
+
+    def thumb_pixmap(self, size):
+        if self._thumb is None:
+            return None
+        return self._thumb.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio,
+                                  Qt.TransformationMode.SmoothTransformation)
 
     # -- status
     def set_status(self, status, message=""):
         self.status = status
         self.message = message or ""
         self._paint_status()
+        if status in ("Done", "Ready", "Queued"):
+            self.refresh_details()
 
     def _paint_status(self):
         c = theme.colors()
         text, key, ic = STATUS_STYLE.get(self.status, (self.status, 'muted', None))
         color = c[key]
-        if self.status == "Done" and self.output:
-            text = "Done · Show"
+        text = tr("Done · Show") if self.status == "Done" and self.output else tr(text)
         self.status_btn.setText(text)
         self.status_btn.setIcon(icons.icon(ic, color, 15) if ic else QIcon())
         self.status_btn.setStyleSheet(f"text-align: left; padding-left: 8px; color: {color};"
                                       + (" font-weight: 600;" if self.status in ("Done", "Error", "Running") else ""))
         tip = self.message
         if self.status == "Error":
-            tip = (tip + "\n\nClick for details") if tip else "Click for details"
+            tip = (tip + "\n\n" if tip else "") + tr("Click for details")
         elif self.status == "Done" and self.output:
-            tip = f"{self.message}\n\nClick to show in Explorer:\n{self.output}".strip()
+            tip = (f"{self.message}\n\n" if self.message else "") + tr("Click to show in Explorer") + f"\n{self.output}"
         self.status_btn.setToolTip(tip)
         clickable = self.status in ("Done", "Error")
         self.status_btn.setCursor(Qt.CursorShape.PointingHandCursor if clickable else Qt.CursorShape.ArrowCursor)
@@ -312,6 +392,7 @@ class FileRow(QFrame):
     def set_busy(self, busy, pipeline_mode=False):
         self.combo.setEnabled(bool(self.options) and not busy and not pipeline_mode)
         self.remove_btn.setEnabled(not busy)
+        self.opts_btn.setEnabled(not busy and not pipeline_mode)
 
     def set_selected(self, on):
         self.setProperty("selected", "true" if on else "false")
@@ -319,13 +400,16 @@ class FileRow(QFrame):
 
     def refresh_theme(self):
         c = theme.colors()
-        cat = category_of(self.det.effective) if self.det.effective else 'unknown'
-        tint = theme.CATEGORY_COLORS.get(cat, theme.CATEGORY_COLORS['unknown'])
-        bg = QColor(tint)
-        bg.setAlpha(38 if theme.is_dark() else 30)
-        self.tile.setStyleSheet(f"background: rgba({bg.red()},{bg.green()},{bg.blue()},{bg.alpha()}); border-radius: 9px;")
-        self.tile.setPixmap(icons.pixmap(cat if cat in ('image', 'video', 'audio', 'document', 'pdf') else 'unknown',
-                                         tint, 20))
+        if self._thumb is None:
+            cat = category_of(self.det.effective) if self.det.effective else 'unknown'
+            tint = theme.CATEGORY_COLORS.get(cat, theme.CATEGORY_COLORS['unknown'])
+            bg = QColor(tint)
+            self.tile.setStyleSheet(f"background: rgba({bg.red()},{bg.green()},{bg.blue()},"
+                                    f"{38 if theme.is_dark() else 30}); border-radius: 9px;")
+            self.tile.setPixmap(icons.pixmap(cat if cat in ('image', 'video', 'audio', 'document', 'pdf')
+                                             else 'unknown', tint, 20))
         self.arrow.setPixmap(icons.pixmap('arrow-right', c['subtle'], 16))
         self.remove_btn.setIcon(icons.icon('x', c['subtle'], 16))
+        active = bool(self.video_opts)
+        self.opts_btn.setIcon(icons.icon('settings', c['accent'] if active else c['subtle'], 16))
         self._paint_status()

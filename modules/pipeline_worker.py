@@ -9,7 +9,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 class PipelineWorker(QThread):
     """Background worker for pipeline execution"""
 
-    progress = pyqtSignal(int, str, str)  # file id, status, message
+    progress = pyqtSignal(object, str, str)  # file id, status, message
     finished_all = pyqtSignal()
 
     def __init__(self, tasks, pipeline):

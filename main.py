@@ -92,6 +92,8 @@ def run_gui(paths):
     from ui import theme
     from ui.main_window import MainWindow
 
+    from ui.i18n import set_language
+    set_language(ConfigManager().get("language") or "System")
     theme.apply(ConfigManager().get("theme_mode") or "System")
     window = MainWindow()
     instance.listen(window.receive_paths)

@@ -210,6 +210,10 @@ def target_options(det):
     for t in FormatRules.get_target_formats(det.effective):
         if norm_ext(t) != det.effective and all(t != o[0] for o in options):
             options.append((t, t))
+    # Videos: allow re-encoding into the same format (to rotate, trim, shrink, ...)
+    if FormatRules.get_category(det.effective) == 'video' and not det.mismatch \
+            and det.effective in FormatRules.get_target_formats(det.effective) + ['mov', 'avi']:
+        options.append((det.effective, f"{det.effective} · keep format"))
     return options
 
 

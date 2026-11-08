@@ -24,6 +24,10 @@ DEFAULT_CONFIG = {
     "quality": "medium",
     "auto_update": True,
     "skipped_version": "",
+    "language": "System",            # System / en / de
+    "onboarded": False,
+    "last_seen_version": "",         # for the "What's new" dialog after an update
+    "last_targets": {},              # remembered target format per input type
 }
 
 from modules.paths import install_dir as _app_dir, user_path, bundled_tool, FROZEN
@@ -37,6 +41,7 @@ class ConfigManager:
     """
     _shared = None
     _lock = threading.RLock()
+    first_run = False   # True if no config file existed when the app started
 
     def __init__(self):
         with ConfigManager._lock:
@@ -52,6 +57,7 @@ class ConfigManager:
     def load_config(self):
         path = self.get_config_path()
         dirty = True
+        ConfigManager.first_run = not os.path.exists(path)
         if not os.path.exists(path) and FROZEN:
             # Settings from an older portable build that kept config next to the exe
             legacy = os.path.join(_app_dir(), CONFIG_FILE)
