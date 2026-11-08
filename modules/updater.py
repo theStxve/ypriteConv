@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -38,12 +39,31 @@ class UpdateInfo:
     page: str
 
 
+def _ssl_context():
+    """
+    Windows' certificate store only contains root certificates that something
+    (a browser, curl) has already needed; Python can't fetch missing ones on
+    demand, which makes HTTPS to GitHub fail on some PCs. Add certifi's bundle.
+    """
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+        ctx.load_verify_locations(certifi.where())
+    except Exception:
+        pass
+    return ctx
+
+
+def _open(url, timeout, accept=None):
+    headers = {'User-Agent': USER_AGENT}
+    if accept:
+        headers['Accept'] = accept
+    return urllib.request.urlopen(urllib.request.Request(url, headers=headers),
+                                  timeout=timeout, context=_ssl_context())
+
+
 def _get_json(url, timeout=10):
-    req = urllib.request.Request(url, headers={
-        'User-Agent': USER_AGENT,
-        'Accept': 'application/vnd.github+json',
-    })
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with _open(url, timeout, 'application/vnd.github+json') as r:
         return json.loads(r.read().decode('utf-8'))
 
 
@@ -97,10 +117,9 @@ class UpdateDownloader(QThread):
         target = os.path.join(tempfile.gettempdir(), f"{APP_NAME}-Setup-{self.info.version}.exe")
         part = target + ".part"
         try:
-            req = urllib.request.Request(self.info.url, headers={'User-Agent': USER_AGENT})
             sha = hashlib.sha256()
             done = 0
-            with urllib.request.urlopen(req, timeout=30) as r, open(part, 'wb') as f:
+            with _open(self.info.url, 30) as r, open(part, 'wb') as f:
                 total = int(r.headers.get('Content-Length') or self.info.size or 0)
                 while True:
                     if self._cancel:

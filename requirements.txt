@@ -6,3 +6,4 @@ PyMuPDF==1.26.7
 pdf2docx==0.5.8
 pikepdf==10.18.0
 tqdm==4.67.1
+certifi==2026.1.4

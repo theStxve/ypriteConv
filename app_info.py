@@ -2,7 +2,7 @@
 
 APP_NAME = "ypriteConvert"
 APP_ID = "ypriteConvert.App"          # Windows AppUserModelID (taskbar grouping/icon)
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 PUBLISHER = "theStxve"
 GITHUB_REPO = "theStxve/ypriteConv"
 GITHUB_URL = f"https://github.com/{GITHUB_REPO}"

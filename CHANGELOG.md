@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed: checking for updates could fail with a certificate error on some PCs, so no update was ever offered
+
 ## 1.1.0
 
 - Thumbnails for photos, videos and PDFs in the file list

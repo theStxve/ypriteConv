@@ -35,8 +35,9 @@ version_info = VSVersionInfo(
 datas = [('presets', 'presets'), ('assets', 'assets'), ('CHANGELOG.md', '.')]
 datas += collect_data_files('pikepdf')
 datas += collect_data_files('pillow_heif')
+datas += collect_data_files('certifi')
 
-hiddenimports = ['pikepdf', 'fitz', 'pymupdf', 'pdf2docx', 'pillow_heif', 'PyQt6.QtSvg', 'PyQt6.QtNetwork']
+hiddenimports = ['pikepdf', 'fitz', 'pymupdf', 'pdf2docx', 'pillow_heif', 'PyQt6.QtSvg', 'PyQt6.QtNetwork', 'certifi']
 
 a = Analysis(
     ['main.py'],
