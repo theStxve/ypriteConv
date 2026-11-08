@@ -1,0 +1,32 @@
+{
+    "name": "Podcast Publisher",
+    "description": "Extract audio from video, normalize loudness, and convert to MP3 (-16 LUFS standard)",
+    "steps": [
+        {
+            "type": "ExtractAudioStep",
+            "step_id": "extract",
+            "name": "Extract Audio Track",
+            "config": {
+                "audio_format": "wav",
+                "audio_quality": "high"
+            }
+        },
+        {
+            "type": "NormalizeAudioStep",
+            "step_id": "normalize",
+            "name": "Normalize Loudness",
+            "config": {
+                "target_lufs": -16.0
+            }
+        },
+        {
+            "type": "ConversionStep",
+            "step_id": "convert_mp3",
+            "name": "Convert to MP3",
+            "config": {
+                "target_format": "mp3",
+                "quality": "high"
+            }
+        }
+    ]
+}

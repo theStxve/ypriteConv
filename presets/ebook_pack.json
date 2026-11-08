@@ -1,0 +1,15 @@
+{
+    "name": "eBook Pack",
+    "description": "Convert documents to PDF format for digital publishing",
+    "steps": [
+        {
+            "type": "ConversionStep",
+            "step_id": "convert_pdf",
+            "name": "Convert to PDF",
+            "config": {
+                "target_format": "pdf",
+                "quality": "high"
+            }
+        }
+    ]
+}

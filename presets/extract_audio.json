@@ -1,0 +1,15 @@
+{
+  "name": "extract audio",
+  "description": "",
+  "steps": [
+    {
+      "type": "ExtractAudioStep",
+      "step_id": "extract_audio",
+      "name": "Extract Audio",
+      "config": {
+        "audio_format": "mp3",
+        "audio_quality": "medium"
+      }
+    }
+  ]
+}

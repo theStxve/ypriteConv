@@ -1,0 +1,62 @@
+# Push a tag like v1.2.0 -> builds the app + installer and publishes a GitHub Release.
+# Installed apps find the new release and update themselves.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (X.Y.Z) - creates tag vX.Y.Z'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Resolve version
+        id: v
+        shell: pwsh
+        run: |
+          $v = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}' }
+          $v = $v.TrimStart('v')
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Ensure Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Build app + installer
+        shell: cmd
+        run: build.bat ${{ steps.v.outputs.version }}
+
+      - name: Smoke test (CLI)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\ypriteConvert\ypriteConvert.exe" -ArgumentList "--list-presets" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "app failed to start (exit $($p.ExitCode))" }
+
+      - name: Release notes from CHANGELOG.md
+        run: python tools/release_notes.py ${{ steps.v.outputs.version }} > release_notes.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: ypriteConvert ${{ steps.v.outputs.version }}
+          body_path: release_notes.md
+          files: Output/ypriteConvert-Setup-${{ steps.v.outputs.version }}.exe

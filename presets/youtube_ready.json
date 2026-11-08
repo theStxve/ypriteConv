@@ -1,0 +1,15 @@
+{
+    "name": "YouTube Ready",
+    "description": "Convert videos to YouTube-optimized format (H.264 MP4, AAC audio, fast-start)",
+    "steps": [
+        {
+            "type": "ConversionStep",
+            "step_id": "convert_video",
+            "name": "Convert to H.264 MP4",
+            "config": {
+                "target_format": "mp4",
+                "quality": "high"
+            }
+        }
+    ]
+}

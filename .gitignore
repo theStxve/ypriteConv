@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build output
+build/
+dist/
+Output/
+*.spec.bak
+
+# Bundled tools are fetched at build time (tools/fetch_ffmpeg.ps1)
+bin/
+
+# Local user data / dev leftovers
+config.json
+config.json.tmp
+logs/
+.aider*
+test_*.png
+test_*.pdf
+gui_test.*
+test_pdfs/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Local archive of superseded docs/scripts and AI tooling
+_archive/
+.agent/
