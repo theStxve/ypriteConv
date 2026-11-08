@@ -32,7 +32,7 @@ def convert_one(src, dest, fmt, quality='medium'):
 
 
 class ConversionWorker(QThread):
-    progress = pyqtSignal(int, str, str)  # file id, status, message
+    progress = pyqtSignal(object, str, str)  # file id, status, message
     finished_all = pyqtSignal()
 
     def __init__(self, tasks):

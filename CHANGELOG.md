@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- Fixed: file status in the list stayed on "Queued" during conversion (files were converted, but progress, "Done" and errors were not shown)
+
 ## 1.0.0
 
 First public release.
